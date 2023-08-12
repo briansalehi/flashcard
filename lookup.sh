@@ -67,4 +67,4 @@ case "$word_type_fa" in
     "صفت") lookup_adjective ;;
 esac
 
-echo "$buffer"
+rm "$buffer"
