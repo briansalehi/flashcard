@@ -3,7 +3,7 @@
 buffer="$(mktemp)" || exit 1
 keyword="$1"
 
-curl -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
+curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Accept-Encoding: gzip, deflate, br' \
