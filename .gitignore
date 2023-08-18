@@ -1,1 +1,4 @@
 *.html
+build/
+Makefile
+.clang_complete
