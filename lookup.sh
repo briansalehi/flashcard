@@ -24,13 +24,16 @@ lookup_noun() {
 
     echo "$exact_match"
     echo
-    echo -e "\e[1m${noun}\e[0m $phonetic"
-    echo -e "\e[3mpl:\e[0m $plural"
-    echo "$possessive"
+    echo -e "\e[1m${noun}\e[0m $phonetic \e[2;3mnomen\e[0m"
+    [ -n "${plural}" ] && echo -e "${plural} \e[2;3mplural\e[0m"
+    [ -n "${possessive}" ] && echo -e "${possessive} \e[2;3mpossessiv\e[0m"
 }
 
 lookup_verb() {
     local verb
+    local past
+    local perfect
+    local tokens
     local phonetic
     local exact_match
     local exact_match
@@ -38,10 +41,15 @@ lookup_verb() {
     verb="$(sed -n '/entity-anchor/,+1s/\s*\(.*\)\s*/\1/p' "$buffer" | sed '1d')"
     phonetic="$(sed -n '/<span class="text-muted">/s/.*>\(\/.*\/\)<.*/\1/p' "$buffer")"
     exact_match="$(sed -n '/translation-index/,+4p' "$buffer" | grep '<strong>' | awk '{print $2}')"
+    tokens="$(grep -A3 'd-inline-block my-0' "$buffer" | xargs | sed 's|\s*</span>\s*|\n|g' | sed 's|.*\[.*:\s*\(.*\)\s*\].*|\1|' | uniq)"
+    past="$(sed -n '1p' <<< "$tokens")"
+    perfect="$(sed -n '3p' <<< "$tokens")$(sed -n '2p' <<< "$tokens")"
 
     echo "$exact_match"
     echo
-    echo -e "\e[1m${verb}\e[0m $phonetic"
+    echo -e "\e[1m${verb}\e[0m $phonetic \e[2;3mverben\e[0m"
+    [ -n "${past}" ] && echo -e "${past} \e[2;3mpräteritum\e[0m"
+    [ -n "${perfect}" ] && echo -e "${perfect} \e[2;3mperfekt\e[0m"
 }
 
 lookup_adjective() {
@@ -56,7 +64,7 @@ lookup_adjective() {
 
     echo "$exact_match"
     echo
-    echo -e "\e[1m${adjective}\e[0m $phonetic"
+    echo -e "\e[1m${adjective}\e[0m $phonetic \e[2;3madjektiv\e[0m"
 }
 
 word_type_fa="$(sed -n '/part-of-speech/,+1s/.*\[\(.*\)\].*/\1/p' "$buffer" | sed -n '1p')"
