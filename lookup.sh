@@ -2,7 +2,7 @@
 
 keyword="$*"
 buffer="$(mktemp)" || exit 1
-share=$HOME/.local/share/de
+share=$HOME/.local/share/flashcard
 notefile=$share/notes
 keywords=$share/keywords
 
