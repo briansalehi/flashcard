@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 
+keyword="$*"
 buffer="$(mktemp)" || exit 1
-keyword="$1"
-
-curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate, br' \
-    -H 'Connection: keep-alive' \
-    -H 'Upgrade-Insecure-Requests: 1' > "$buffer"
+share=$HOME/.local/share/de
+notefile=$share/notes
+keywords=$share/keywords
 
 lookup_noun() {
     local noun
@@ -67,12 +63,30 @@ lookup_adjective() {
     echo -e "\e[1m${adjective}\e[0m $phonetic \e[2;3madjektiv\e[0m"
 }
 
-word_type_fa="$(sed -n '/part-of-speech/,+1s/.*\[\(.*\)\].*/\1/p' "$buffer" | sed -n '1p')"
+if [ "$1" == "save" ] && [ $# -eq 2 ]
+then
+    [ -d "$share" ] || mkdir -p "$share"
+    grep -qw "$2" "$keywords" || echo "$2" >> "$keywords"
+elif [ "$1" == "save" ]
+then
+    shift
+    [ -d "$share" ] || mkdir -p "$share"
+    grep -q "$*" "$notefile" || echo "$*" >> "$notefile"
+else
+    curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
+        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
+        -H 'Accept-Language: en-US,en;q=0.5' \
+        -H 'Accept-Encoding: gzip, deflate, br' \
+        -H 'Connection: keep-alive' \
+        -H 'Upgrade-Insecure-Requests: 1' > "$buffer"
 
-case "$word_type_fa" in
-    "اسم") lookup_noun ;;
-    "فعل") lookup_verb ;;
-    "صفت") lookup_adjective ;;
-esac
+    word_type_fa="$(sed -n '/part-of-speech/,+1s/.*\[\(.*\)\].*/\1/p' "$buffer" | sed -n '1p')"
+
+    case "$word_type_fa" in
+        "اسم") lookup_noun ;;
+        "فعل") lookup_verb ;;
+        "صفت") lookup_adjective ;;
+    esac
+fi
 
 rm "$buffer"
