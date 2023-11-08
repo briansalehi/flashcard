@@ -5,6 +5,8 @@ buffer="$(mktemp)" || exit 1
 share=$HOME/.local/share/flashcard
 notefile=$share/notes
 keywords=$share/keywords
+practices=$share/practices.csv
+grammars=$share/grammars
 
 lookup_noun() {
     local noun
@@ -63,15 +65,65 @@ lookup_adjective() {
     echo -e "\e[1m${adjective}\e[0m $phonetic \e[2;3madjektiv\e[0m"
 }
 
+save_practice() {
+    read -rp "Section: " section
+    read -rp "Task: " task
+    read -rp "Question: " question
+    read -rp "Answer: " answer
+
+    if [ -n "$section" ] && [ -n "$task" ] && [ -n "$question" ] && [ -n "$answer" ]
+    then
+        echo "${section}::${task}::${question}::${answer}" >> "${practices}"
+        echo -e "\e[1;31mPractice saved\e[0m" >&2
+    else
+        echo -e "\e[1;31mPractice incomplete\e[0m" >&2
+    fi
+}
+
+save_grammar() {
+    local temp
+    local title
+    local section
+    local filename
+
+    temp="$(mktemp)"
+
+    if read -rp "Grammar title: " title && read -rp "Section: " section && $EDITOR "$temp"
+    then
+        filename="$grammars/${title,,}"
+        filename="${title// /-}"
+
+        [ -d "$grammars" ] || mkdir -p "$grammars"
+
+        if ! [ -f "$filename" ]
+        then
+            echo "$section" > "$filename"
+            cat "$temp" >> "$filename"
+            echo -e "\e[1;31mGrammar saved: cache $temp\e[0m" >&2
+        else
+            echo -e "\e[1;31mGrammar name already reserved: cached $temp\e[0m" >&2
+        fi
+    else
+        echo -e "\e[1;31mGrammar could not be saved: cached $temp\e[0m" >&2
+    fi
+}
+
 if [ "$1" == "save" ] && [ $# -eq 2 ]
 then
     [ -d "$share" ] || mkdir -p "$share"
     grep -qw "$2" "$keywords" || echo "$2" >> "$keywords"
+    echo -e "\e[1;31mKeyword saved\e[0m" >&2
 elif [ "$1" == "save" ]
 then
     shift
     [ -d "$share" ] || mkdir -p "$share"
     grep -q "$*" "$notefile" || echo "$*" >> "$notefile"
+elif [ "$1" == "practice" ]
+then
+    save_practice
+elif [ "$1" == "grammar" ]
+then
+    save_grammar
 else
     curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
         -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
