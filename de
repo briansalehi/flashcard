@@ -237,7 +237,7 @@ start_review() {
 if [ "$1" == "save" ] && [ $# -eq 2 ]
 then
     [ -d "$share" ] || mkdir -p "$share"
-    grep -qw "$2" "$keywords" || echo "$2" >> "$keywords"
+    grep -iqw "$2" "$keywords" || echo "$2" >> "$keywords"
     echo -e "\e[1;31mKeyword saved\e[0m" >&2
 elif [ "$1" == "save" ]
 then
