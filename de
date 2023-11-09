@@ -8,6 +8,25 @@ keywords=$share/keywords
 practices=$share/practices.csv
 grammars=$share/grammars
 
+random_sequence() {
+    local max="${1:-1}"
+    local random
+    local index
+    local -a sequence
+
+    for index in $(seq 1 "$max")
+    do
+        random="$((RANDOM % max))"
+        while grep -wq "$random" <<< "${sequence[*]}"
+        do
+            random="$((RANDOM % max))"
+        done
+        sequence["$index"]="$random"
+    done
+
+    echo "${sequence[*]}"
+}
+
 lookup_noun() {
     local noun
     local phonetic
@@ -108,6 +127,112 @@ save_grammar() {
     fi
 }
 
+prompt_user() {
+    local record="$1"
+    local task
+    local question
+    local answer
+    local response
+    local errno
+
+    task="$(awk -F'::' '{print $2}' <<< "$record")"
+    question="$(awk -F'::' '{print $3}' <<< "$record")"
+    answer="$(awk -F'::' '{print $4}' <<< "$record")"
+
+    echo -e "\e[1;35m${task}\e[0m"
+    echo
+    echo -e "\e[1;34m${question}\e[0m"
+    echo -e "\e[1;33m"
+    read -rp "Answer: " response
+    echo -ne "\e[0m"
+
+    if [ "$response" == "$answer" ]
+    then
+        errno=0
+    else
+        echo -e "\n\e[1;31m${answer}\e[0m\n"
+        errno=1
+    fi
+
+    return $errno
+}
+
+process_grammar() {
+    local section="$1"
+    local -a records
+    local record_index
+    local screen_width=0
+    local pad_width=0
+    local string_width=0
+    local prompt=""
+
+    read -ra records <<< "$(awk -F'::' -v section="$section" '$1 == section {print $0}' "$practices" | xargs)"
+
+    for record_index in $(random_sequence "${#records[*]}")
+    do
+        prompt="Press ^M to move forward"
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$prompt")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+
+        if prompt_user "${records[$record_index]}"
+        then
+            echo -e "\n\e[1;32mCorrect\e[0m\n"
+            printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
+            read -r </dev/tty
+            break
+        fi
+
+        printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
+        read -r </dev/tty
+        echo -e "\e[0m"
+    done
+}
+
+find_width() {
+    local file_path="$1"
+    local max_width=0
+    local width
+    local line
+
+    while read -r line
+    do
+        width="$(wc -c <<< "$line")"
+        [ "$width" -gt "$max_width" ] && max_width="$width"
+    done < "$file_path"
+
+    echo "$width"
+}
+
+start_review() {
+    local grammar_path
+    local section
+    local width
+    local screen_width=0
+    local pad_width=0
+    local string_width=0
+
+    for grammar_path in "$grammars"/*
+    do
+        section="$(basename "$grammar_path")"
+        width="$(find_width "$grammar_path")"
+
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$section")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+
+        clear
+        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
+        echo -e "\n\e[3;2;37m"
+        cat "$grammar_path"
+        echo
+        printf "%0.s-" $(seq 0 "$width")
+        echo -e "\e[0m\n"
+
+        process_grammar "$section"
+    done
+}
+
 if [ "$1" == "save" ] && [ $# -eq 2 ]
 then
     [ -d "$share" ] || mkdir -p "$share"
@@ -124,6 +249,9 @@ then
 elif [ "$1" == "grammar" ]
 then
     save_grammar
+elif [ "$1" == "review" ]
+then
+    start_review
 else
     curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
         -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
