@@ -107,16 +107,17 @@ save_grammar() {
 
     temp="$(mktemp)"
 
-    if read -rp "Grammar title: " title && read -rp "Section: " section && $EDITOR "$temp"
+    if read -rp "Section: " section && $EDITOR "$temp"
     then
-        filename="$grammars/${title,,}"
-        filename="${title// /-}"
+        filename="$grammars/${section}"
+
+        read -rp "Grammar title: " title
 
         [ -d "$grammars" ] || mkdir -p "$grammars"
 
         if ! [ -f "$filename" ]
         then
-            echo "$section" > "$filename"
+            echo -e "${title}\n" > "$filename"
             cat "$temp" >> "$filename"
             echo -e "\e[1;31mGrammar saved: cache $temp\e[0m" >&2
         else
