@@ -69,6 +69,21 @@ lookup_verb() {
     [ -n "${perfect}" ] && echo -e "${perfect} \e[2;3mperfekt\e[0m"
 }
 
+lookup_adverb() {
+    local adverb
+    local phonetic
+    local exact_match
+    local exact_match
+
+    adverb="$(sed -n '/entity-anchor/,+1s/\s*\(.*\)\s*/\1/p' "$buffer" | sed '1d')"
+    phonetic="$(sed -n '/<span class="text-muted">/s/.*>\(\/.*\/\)<.*/\1/p' "$buffer")"
+    exact_match="$(sed -n '/translation-index/,+4p' "$buffer" | grep '<strong>' | awk '{print $2}')"
+
+    echo "$exact_match"
+    echo
+    echo -e "\e[1m${adverb}\e[0m $phonetic \e[2;3madverb\e[0m"
+}
+
 lookup_adjective() {
     local adjective
     local phonetic
@@ -305,6 +320,7 @@ else
         "اسم") lookup_noun ;;
         "فعل") lookup_verb ;;
         "صفت") lookup_adjective ;;
+        "قید") lookup_adverb ;;
     esac
 fi
 
