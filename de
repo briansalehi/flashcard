@@ -160,6 +160,7 @@ prompt_user() {
 
 process_grammar() {
     local section="$1"
+    local grammar_path="$2"
     local -a records
     local record_index
     local screen_width=0
@@ -167,40 +168,69 @@ process_grammar() {
     local string_width=0
     local prompt="Press ^M to move forward"
 
-    screen_width="$(tput cols)"
-    string_width="$(wc -c <<< "$prompt")"
-    pad_width=$((screen_width / 2 - string_width / 2))
+    readarray -t records < <(awk -F'::' -v section="$section" '$1 == section {print $0}' "$practices")
 
-    IFS=$'\n'
-    read -ra records <<< "$(awk -F'::' -v section="$section" '$1 == section {print $0}' "$practices" | xargs)"
+    for record_index in $(random_sequence "${#records[*]}")
+    do
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$section")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+        width="$(find_width "$grammar_path")"
+
+        clear
+        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
+        echo -e "\n\e[3;2;37m"
+        cat "$grammar_path"
+        echo
+        printf "%0.s-" $(seq 0 "$width")
+        echo -e "\e[0m\n"
+
+        if prompt_user "${records[$record_index]}"
+        then
+            echo -e "\n\e[1;32mCorrect\e[0m\n"
+
+            screen_width="$(tput cols)"
+            string_width="$(wc -c <<< "$prompt")"
+            pad_width=$((screen_width / 2 - string_width / 2))
+
+            printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
+            read -r </dev/tty
+            break
+        else
+            screen_width="$(tput cols)"
+            string_width="$(wc -c <<< "$prompt")"
+            pad_width=$((screen_width / 2 - string_width / 2))
+
+            printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
+            read -r </dev/tty
+        fi
+    done
 
     if [ "${#records[*]}" -eq 0 ]
     then
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$section")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+        width="$(find_width "$grammar_path")"
+
+        clear
+        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
+        echo -e "\n\e[3;2;37m"
+        cat "$grammar_path"
+        echo
+        printf "%0.s-" $(seq 0 "$width")
+        echo -e "\e[0m\n"
+
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$prompt")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+
         echo -e "\e[1;31mNo practices found for this grammar.\e[0m\n"
         printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
         read -r </dev/tty
         echo -e "\e[0m"
         return 1
     fi
-
-    for record_index in $(random_sequence "${#records[*]}")
-    do
-        screen_width="$(tput cols)"
-        string_width="$(wc -c <<< "$prompt")"
-        pad_width=$((screen_width / 2 - string_width / 2))
-
-        if prompt_user "${records[$record_index]}"
-        then
-            echo -e "\n\e[1;32mCorrect\e[0m\n"
-            printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
-            read -r </dev/tty
-            break
-        fi
-
-        printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
-        read -r </dev/tty
-        echo -e "\e[0m"
-    done
 }
 
 find_width() {
@@ -229,21 +259,8 @@ start_review() {
     for grammar_path in "$grammars"/*
     do
         section="$(basename "$grammar_path")"
-        width="$(find_width "$grammar_path")"
 
-        screen_width="$(tput cols)"
-        string_width="$(wc -c <<< "$section")"
-        pad_width=$((screen_width / 2 - string_width / 2))
-
-        clear
-        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
-        echo -e "\n\e[3;2;37m"
-        cat "$grammar_path"
-        echo
-        printf "%0.s-" $(seq 0 "$width")
-        echo -e "\e[0m\n"
-
-        process_grammar "$section"
+        process_grammar "$section" "$grammar_path"
     done
 }
 
