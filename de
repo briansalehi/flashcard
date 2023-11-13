@@ -69,6 +69,21 @@ lookup_verb() {
     [ -n "${perfect}" ] && echo -e "${perfect} \e[2;3mperfekt\e[0m"
 }
 
+lookup_adverb() {
+    local adverb
+    local phonetic
+    local exact_match
+    local exact_match
+
+    adverb="$(sed -n '/entity-anchor/,+1s/\s*\(.*\)\s*/\1/p' "$buffer" | sed '1d')"
+    phonetic="$(sed -n '/<span class="text-muted">/s/.*>\(\/.*\/\)<.*/\1/p' "$buffer")"
+    exact_match="$(sed -n '/translation-index/,+4p' "$buffer" | grep '<strong>' | awk '{print $2}')"
+
+    echo "$exact_match"
+    echo
+    echo -e "\e[1m${adverb}\e[0m $phonetic \e[2;3madverb\e[0m"
+}
+
 lookup_adjective() {
     local adjective
     local phonetic
@@ -160,34 +175,77 @@ prompt_user() {
 
 process_grammar() {
     local section="$1"
+    local grammar_path="$2"
     local -a records
     local record_index
     local screen_width=0
     local pad_width=0
     local string_width=0
-    local prompt=""
+    local prompt="Press ^M to move forward"
 
-    read -ra records <<< "$(awk -F'::' -v section="$section" '$1 == section {print $0}' "$practices" | xargs)"
+    readarray -t records < <(awk -F'::' -v section="$section" '$1 == section {print $0}' "$practices")
 
     for record_index in $(random_sequence "${#records[*]}")
     do
-        prompt="Press ^M to move forward"
         screen_width="$(tput cols)"
-        string_width="$(wc -c <<< "$prompt")"
+        string_width="$(wc -c <<< "$section")"
         pad_width=$((screen_width / 2 - string_width / 2))
+        width="$(find_width "$grammar_path")"
+
+        clear
+        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
+        echo -e "\n\e[3;2;37m"
+        cat "$grammar_path"
+        echo
+        printf "%0.s-" $(seq 0 "$width")
+        echo -e "\e[0m\n"
 
         if prompt_user "${records[$record_index]}"
         then
             echo -e "\n\e[1;32mCorrect\e[0m\n"
+
+            screen_width="$(tput cols)"
+            string_width="$(wc -c <<< "$prompt")"
+            pad_width=$((screen_width / 2 - string_width / 2))
+
             printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
             read -r </dev/tty
             break
-        fi
+        else
+            screen_width="$(tput cols)"
+            string_width="$(wc -c <<< "$prompt")"
+            pad_width=$((screen_width / 2 - string_width / 2))
 
+            printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
+            read -r </dev/tty
+        fi
+    done
+
+    if [ "${#records[*]}" -eq 0 ]
+    then
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$section")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+        width="$(find_width "$grammar_path")"
+
+        clear
+        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
+        echo -e "\n\e[3;2;37m"
+        cat "$grammar_path"
+        echo
+        printf "%0.s-" $(seq 0 "$width")
+        echo -e "\e[0m\n"
+
+        screen_width="$(tput cols)"
+        string_width="$(wc -c <<< "$prompt")"
+        pad_width=$((screen_width / 2 - string_width / 2))
+
+        echo -e "\e[1;31mNo practices found for this grammar.\e[0m\n"
         printf "\e[1;7;36m%*s%s%*s\e[0m" "$pad_width" ' ' "$prompt" "$pad_width" ' '
         read -r </dev/tty
         echo -e "\e[0m"
-    done
+        return 1
+    fi
 }
 
 find_width() {
@@ -216,28 +274,15 @@ start_review() {
     for grammar_path in "$grammars"/*
     do
         section="$(basename "$grammar_path")"
-        width="$(find_width "$grammar_path")"
 
-        screen_width="$(tput cols)"
-        string_width="$(wc -c <<< "$section")"
-        pad_width=$((screen_width / 2 - string_width / 2))
-
-        clear
-        printf "\e[1;7;33m%*s%s%*s\e[0m" "$pad_width" ' ' "$section" "$pad_width" ' '
-        echo -e "\n\e[3;2;37m"
-        cat "$grammar_path"
-        echo
-        printf "%0.s-" $(seq 0 "$width")
-        echo -e "\e[0m\n"
-
-        process_grammar "$section"
+        process_grammar "$section" "$grammar_path"
     done
 }
 
 if [ "$1" == "save" ] && [ $# -eq 2 ]
 then
     [ -d "$share" ] || mkdir -p "$share"
-    grep -qw "$2" "$keywords" || echo "$2" >> "$keywords"
+    grep -iqw "$2" "$keywords" || echo "$2" >> "$keywords"
     echo -e "\e[1;31mKeyword saved\e[0m" >&2
 elif [ "$1" == "save" ]
 then
@@ -253,6 +298,14 @@ then
 elif [ "$1" == "review" ]
 then
     start_review
+elif [ "$1" == "diff" ]
+then
+    awk -F'::' '{print $1}' "$practices" | sort | uniq > /tmp/practice.lst
+    ls -1 "$grammars" > /tmp/grammar.lst
+
+    diff /tmp/practice.lst /tmp/grammar.lst | \
+        sed -e 's/^</missing grammar for/' -e 's/^>/missing practice for/' | \
+        sed '/^[0-9-]/d' | sort
 else
     curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
         -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
@@ -267,6 +320,7 @@ else
         "اسم") lookup_noun ;;
         "فعل") lookup_verb ;;
         "صفت") lookup_adjective ;;
+        "قید") lookup_adverb ;;
     esac
 fi
 
