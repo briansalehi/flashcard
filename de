@@ -160,9 +160,9 @@ prompt_user() {
 
     screen_width="$(tput cols)"
     string_width="$(wc -c <<< "$task")"
-    pad_width=$((screen_width / 2 - string_width / 2))
+    pad_width=$((screen_width - string_width))
 
-    printf "\e[1;7;35m%*s%s%*s\e[0m\n" "$pad_width" ' ' "$task" "$pad_width" ' '
+    printf "\e[1;7;35m%*s%s%*s\e[0m\n" "1" ' ' "$task" "$pad_width" ' '
     echo
     echo -e "\e[1;34m${question}\e[0m"
     echo -e "\e[1;33m"
