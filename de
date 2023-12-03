@@ -294,6 +294,7 @@ then
     shift
     [ -d "$share" ] || mkdir -p "$share"
     grep -q "$*" "$notefile" || echo "$*" >> "$notefile"
+    echo -e "\e[1;31mSentence saved\e[0m" >&2
 elif [ "$1" == "practice" ]
 then
     save_practice
@@ -311,6 +312,9 @@ then
     diff /tmp/practice.lst /tmp/grammar.lst | \
         sed -e 's/^</missing grammar for/' -e 's/^>/missing practice for/' | \
         sed '/^[0-9-]/d' | sort
+elif [ "$1" == "list" ]
+then
+    awk -F'::' '{print $1}' "$practices" | sort | uniq
 else
     curl -L -s "https://dic.b-amooz.com/de/dictionary/w?word=$keyword" --compressed \
         -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9' \
